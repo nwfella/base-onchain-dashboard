@@ -2,3 +2,8 @@ node_modules/
 .env
 .DS_Store
 *.log
+package.json
+package-lock.json
+contracts/node_modules/
+contracts/package.json
+contracts/package-lock.json

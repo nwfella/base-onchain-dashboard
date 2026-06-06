@@ -352,6 +352,52 @@
     }
     .cta-link.secondary:hover { background: rgba(255,255,255,0.1); }
 
+    /* Wallet Button */
+    .wallet-btn {
+      display: inline-flex;
+      align-items: center; gap: 8px;
+      padding: 7px 18px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      border: 1px solid var(--base-border);
+      background: rgba(0,82,255,0.1);
+      color: var(--base-blue-light);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .wallet-btn:hover { background: rgba(0,82,255,0.2); border-color: var(--base-blue); }
+    .wallet-btn.connected { background: rgba(0,200,83,0.1); border-color: rgba(0,200,83,0.3); color: var(--base-green); }
+    .wallet-btn .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .wallet-btn .dot.gray { background: var(--base-text-muted); }
+    .wallet-btn .dot.green { background: var(--base-green); }
+
+    /* NFT Mint */
+    .nft-card { text-align: center; }
+    .nft-card .nft-icon { font-size: 3rem; margin-bottom: 4px; }
+    .nft-status { margin: 12px 0; }
+    .nft-status .supply { font-size: 0.9rem; color: var(--base-text-muted); }
+    .mint-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 32px;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: 1rem;
+      border: none;
+      background: var(--base-gradient);
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mint-btn:hover { transform: translateY(-2px); box-shadow: var(--base-glow); }
+    .mint-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+    .mint-btn .spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+    .mint-result { margin-top: 12px; font-size: 0.9rem; }
+    .mint-result a { color: var(--base-blue-light); }
+    .mint-error { color: var(--base-red); font-size: 0.85rem; margin-top: 8px; }
+    .wallet-address { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--base-text-muted); }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header { padding: 0 1rem; }
@@ -390,6 +436,9 @@
           <span class="status-dot"></span>
           Chain Active
         </div>
+        <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
+          <span class="dot gray"></span> Connect Wallet
+        </button>
         <div class="header-links">
           <a href="https://base.org" target="_blank">Base.org</a>
           <a href="https://docs.base.org" target="_blank">Docs</a>
@@ -463,6 +512,34 @@
         </div>
         <div id="blockList" class="block-timeline">
           <div class="loading"><div class="spinner"></div>Fetching blocks...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NFT Explorer -->
+    <div class="grid">
+      <div class="card nft-card">
+        <div class="card-header">
+          <span class="card-title">NFT Explorer — Mint a Base Explorer Badge</span>
+          <span class="card-icon">🪪</span>
+        </div>
+        <div>
+          <div class="nft-icon">🧭</div>
+          <div class="nft-status">
+            <div style="font-size:1.1rem;font-weight:600;" id="nftTitle">Base Explorer</div>
+            <div class="supply">Minted: <span id="nftSupply">—</span> / <span id="nftMaxSupply">500</span></div>
+          </div>
+          <div id="walletInfo" style="margin-bottom:12px;">
+            <div class="wallet-address" id="walletAddress"></div>
+          </div>
+          <button class="mint-btn" id="mintBtn" onclick="mintNft()" disabled>
+            ⚡ Mint Your Explorer Badge
+          </button>
+          <div class="mint-result" id="mintResult"></div>
+          <div class="mint-error" id="mintError"></div>
+          <p style="color:var(--base-text-muted);font-size:0.75rem;margin-top:12px;">
+            Free mint on Base Sepolia · 1 per wallet · Connect your wallet to start
+          </p>
         </div>
       </div>
     </div>
@@ -827,6 +904,176 @@
 
     // Set chain ID immediately (static)
     if (el('heroChainId')) el('heroChainId').textContent = '8453';
+
+    // ===== WALLET CONNECTION + NFT MINT =====
+
+    // --- Config ---
+    var CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'; // TO BE UPDATED AFTER DEPLOY
+    var BASE_SEPOLIA_CHAIN_ID = '0x14A34'; // 84532 in hex
+    var CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"AlreadyMinted","type":"error"},{"inputs":[],"name":"InvalidTokenId","type":"error"},{"inputs":[],"name":"MaxSupplyReached","type":"error"},{"inputs":[],"name":"NotOwner","type":"error"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"uri","type":"string"}],"name":"BaseURIUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Minted","type":"event"},{"inputs":[],"name":"MAX_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"baseTokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"hasMinted","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"mint","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"uri","type":"string"}],"name":"setBaseURI","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+
+    var walletAddress = null;
+    var nftContract = null;
+
+    // --- Wallet Connection ---
+    async function connectWallet() {
+      var btn = el('walletBtn');
+      if (walletAddress) {
+        // Disconnect
+        walletAddress = null;
+        btn.innerHTML = '<span class="dot gray"></span> Connect Wallet';
+        btn.className = 'wallet-btn';
+        el('walletAddress').textContent = '';
+        el('mintBtn').disabled = true;
+        el('mintResult').textContent = '';
+        return;
+      }
+
+      if (typeof window.ethereum === 'undefined') {
+        el('mintError').textContent = '⚠️ No wallet found. Install MetaMask or Coinbase Wallet.';
+        return;
+      }
+
+      try {
+        btn.innerHTML = '<span class="spinner-sm"></span> Connecting...';
+        btn.disabled = true;
+
+        var accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        walletAddress = accounts[0];
+
+        // Check network
+        var chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }]
+            });
+          } catch (switchError) {
+            // Chain not added yet
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: BASE_SEPOLIA_CHAIN_ID,
+                  chainName: 'Base Sepolia',
+                  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                  rpcUrls: ['https://sepolia.base.org'],
+                  blockExplorerUrls: ['https://sepolia.basescan.org']
+                }]
+              });
+            }
+          }
+        }
+
+        // Set up contract
+        var provider = new ethers.providers.Web3Provider(window.ethereum);
+        var signer = provider.getSigner();
+        nftContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+        // Update UI
+        var shortAddr = walletAddress.slice(0,6) + '...' + walletAddress.slice(-4);
+        btn.innerHTML = '<span class="dot green"></span> ' + shortAddr;
+        btn.className = 'wallet-btn connected';
+        el('walletAddress').textContent = walletAddress;
+        el('mintBtn').disabled = false;
+        el('mintError').textContent = '';
+
+        // Load supply
+        loadSupply();
+
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', function() {
+          walletAddress = null;
+          connectWallet();
+        });
+
+      } catch (err) {
+        console.error('Wallet error:', err);
+        btn.innerHTML = '<span class="dot gray"></span> Connect Wallet';
+        btn.className = 'wallet-btn';
+        el('mintError').textContent = '⚠️ Connection failed: ' + err.message;
+      }
+      btn.disabled = false;
+    }
+
+    // --- Load Supply ---
+    async function loadSupply() {
+      if (!nftContract) return;
+      try {
+        var total = await nftContract.totalSupply();
+        var max = 500;
+        el('nftSupply').textContent = total.toString();
+        el('nftMaxSupply').textContent = max;
+
+        if (total >= max) {
+          el('mintBtn').disabled = true;
+          el('mintBtn').textContent = '✕ Sold Out';
+        }
+
+        // Check if user already minted
+        try {
+          var minted = await nftContract.hasMinted(walletAddress);
+          if (minted) {
+            el('mintBtn').disabled = true;
+            el('mintBtn').textContent = '✓ Already Minted';
+            el('mintResult').innerHTML = 'You own a <strong>Base Explorer</strong> badge!';
+          }
+        } catch(e) {}
+      } catch(err) {
+        console.warn('Supply load:', err.message);
+      }
+    }
+
+    // --- Mint ---
+    async function mintNft() {
+      var btn = el('mintBtn');
+      var result = el('mintResult');
+      var error = el('mintError');
+      result.textContent = '';
+      error.textContent = '';
+
+      if (!nftContract || !walletAddress) {
+        error.textContent = 'Connect your wallet first.';
+        return;
+      }
+
+      try {
+        btn.innerHTML = '<span class="spinner-sm"></span> Minting...';
+        btn.disabled = true;
+
+        var tx = await nftContract.mint();
+        result.innerHTML = '⏳ Transaction submitted... ' +
+          '<a href="https://sepolia.basescan.org/tx/' + tx.hash + '" target="_blank">View on BaseScan ↗</a>';
+
+        var receipt = await tx.wait();
+
+        // Find the Minted event
+        var mintedEvent = receipt.events && receipt.events.find(function(e) { return e.event === 'Minted'; });
+        var tokenId = mintedEvent ? mintedEvent.args.tokenId.toString() : '?';
+
+        result.innerHTML = '✅ Minted! Token #' + tokenId +
+          ' · <a href="https://sepolia.basescan.org/token/' + CONTRACT_ADDRESS + '?a=' + tokenId + '" target="_blank">View on BaseScan ↗</a>';
+
+        btn.innerHTML = '✓ Minted!';
+        btn.disabled = true;
+        loadSupply();
+
+      } catch (err) {
+        console.error('Mint error:', err);
+        if (err.code === 4001) {
+          error.textContent = '⛔ Transaction rejected by user.';
+        } else if (err.message && err.message.indexOf('AlreadyMinted') !== -1) {
+          error.textContent = '⛔ You already minted! (1 per wallet)';
+        } else if (err.message && err.message.indexOf('MaxSupplyReached') !== -1) {
+          error.textContent = '⛔ All 500 badges have been minted!';
+        } else {
+          error.textContent = '⚠️ ' + (err.message || 'Transaction failed');
+        }
+        btn.innerHTML = '⚡ Mint Your Explorer Badge';
+        btn.disabled = false;
+      }
+    }
   </script>
 </body>
 </html>
