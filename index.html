@@ -421,7 +421,7 @@
         </div>
         <div class="hero-stat">
           <div class="hero-stat-value" id="heroGasPrice">—</div>
-          <div class="hero-stat-label">Gas (Gwei)</div>
+          <div class="hero-stat-label">Gas Price</div>
         </div>
       </div>
     </section>
@@ -437,7 +437,7 @@
           <div class="ticker"><div class="ticker-icon eth">Ξ</div><div class="ticker-info"><div class="ticker-symbol">ETH</div><div class="ticker-price" id="ethPrice">—</div><div class="ticker-change" id="ethChange"></div></div></div>
           <div class="ticker"><div class="ticker-icon btc">₿</div><div class="ticker-info"><div class="ticker-symbol">BTC</div><div class="ticker-price" id="btcPrice">—</div><div class="ticker-change" id="btcChange"></div></div></div>
           <div class="ticker"><div class="ticker-icon base">⊞</div><div class="ticker-info"><div class="ticker-symbol">Base TVL</div><div class="ticker-price" id="baseTvl">—</div><div class="ticker-change" id="baseTvlChange"></div></div></div>
-          <div class="ticker"><div class="ticker-icon base" style="background:rgba(0,82,255,0.2);color:var(--base-blue-light);">🧊</div><div class="ticker-info"><div class="ticker-symbol">24h Tx Count</div><div class="ticker-price" id="baseTxCount">—</div><div class="ticker-change" id="baseTxChange"></div></div></div>
+          <div class="ticker"><div class="ticker-icon base" style="background:rgba(0,82,255,0.2);color:var(--base-blue-light);">↻</div><div class="ticker-info"><div class="ticker-symbol">24h Tx Count</div><div class="ticker-price" id="baseTxCount">—</div><div class="ticker-change" id="baseTxChange"></div></div></div>
         </div>
       </div>
     </div>
@@ -574,9 +574,25 @@
         var block = await PROVIDER.getBlock('latest');
         el('heroChainId').textContent = net.chainId;
         el('heroBlockHeight').innerHTML = '<a href="https://basescan.org/block/' + block.number + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + formatNumber(block.number) + ' ↗</a>';
-        if (block.baseFeePerGas) {
-          var gwei = parseFloat(ethers.utils.formatUnits(block.baseFeePerGas, 'gwei'));
-          el('heroGasPrice').textContent = gwei.toFixed(1);
+        // Gas price: L2s like Base have very low fees. Show with precision.
+        try {
+          var feeData = await PROVIDER.getFeeData();
+          if (feeData.gasPrice) {
+            var gwei = parseFloat(ethers.utils.formatUnits(feeData.gasPrice, 'gwei'));
+            if (gwei >= 1) {
+              el('heroGasPrice').textContent = gwei.toFixed(2);
+            } else if (gwei >= 0.001) {
+              el('heroGasPrice').textContent = gwei.toFixed(4);
+            } else {
+              el('heroGasPrice').textContent = '< 0.001';
+            }
+          }
+        } catch(e) {
+          // fallback to baseFeePerGas
+          if (block.baseFeePerGas && block.baseFeePerGas > 0) {
+            var gwei = parseFloat(ethers.utils.formatUnits(block.baseFeePerGas, 'gwei'));
+            el('heroGasPrice').textContent = gwei >= 0.001 ? gwei.toFixed(4) : '< 0.001';
+          }
         }
       } catch (err) {
         console.warn('RPC:', err.message);
@@ -608,6 +624,49 @@
         }).join('');
       } catch (err) {
         container.innerHTML = '<div class="error">\u26A0\uFE0F Blocks: ' + err.message + '</div>';
+      }
+    }
+
+    // ===== 24H TX COUNT (estimated from RPC blocks) =====
+    async function loadTxCount() {
+      if (!PROVIDER) {
+        el('baseTxCount').textContent = '—';
+        return;
+      }
+      try {
+        var latest = await PROVIDER.getBlock('latest');
+        // Sample blocks from ~2 minutes ago (~60 blocks at 2s each)
+        var sampleSize = 60;
+        var oldBlock = await PROVIDER.getBlock(latest.number - sampleSize);
+        var timeDiff = latest.timestamp - oldBlock.timestamp;
+        if (timeDiff <= 0) { el('baseTxCount').textContent = '—'; return; }
+
+        // Count txns in sample range
+        var totalTxns = 0;
+        var batchSize = 20;
+        for (var i = 0; i < sampleSize; i += batchSize) {
+          var batch = [];
+          var end = Math.min(i + batchSize, sampleSize);
+          for (var j = i; j < end; j++) {
+            batch.push(PROVIDER.getBlock(latest.number - j));
+          }
+          var batchBlocks = await Promise.all(batch);
+          for (var k = 0; k < batchBlocks.length; k++) {
+            totalTxns += (batchBlocks[k].transactions || []).length;
+          }
+        }
+
+        var tps = totalTxns / timeDiff;
+        var dailyEstimate = Math.round(tps * 86400);
+
+        el('baseTxCount').textContent = formatNumber(dailyEstimate);
+        if (el('baseTxChange')) {
+          el('baseTxChange').textContent = '~' + tps.toFixed(1) + ' TPS';
+          el('baseTxChange').className = 'ticker-change up';
+        }
+      } catch (err) {
+        console.warn('Tx count:', err.message);
+        el('baseTxCount').textContent = '—';
       }
     }
 
@@ -749,6 +808,7 @@
       Promise.allSettled([
         loadBaseChainData(),
         loadRecentBlocks(),
+        loadTxCount(),
         loadProtocols(),
         loadMarketPrices(),
         loadBaseTvl(),
@@ -760,7 +820,7 @@
 
       // Refreshes
       setInterval(function() {
-        Promise.allSettled([loadRecentBlocks(), loadBaseChainData()]).then(updateTimestamp);
+        Promise.allSettled([loadRecentBlocks(), loadBaseChainData(), loadTxCount()]).then(updateTimestamp);
       }, 30000);
       setInterval(function() {
         loadMarketPrices().then(updateTimestamp);
