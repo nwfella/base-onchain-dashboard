@@ -4,6 +4,7 @@ node_modules/
 *.log
 package.json
 package-lock.json
+deployment.json
 contracts/node_modules/
 contracts/package.json
 contracts/package-lock.json
