@@ -630,30 +630,25 @@
     // ===== 24H TX COUNT (estimated from RPC blocks) =====
     async function loadTxCount() {
       if (!PROVIDER) {
-        el('baseTxCount').textContent = '—';
+        el('baseTxCount').textContent = '\u2014';
         return;
       }
       try {
         var latest = await PROVIDER.getBlock('latest');
-        // Sample blocks from ~2 minutes ago (~60 blocks at 2s each)
-        var sampleSize = 60;
+        // Sample 20 blocks (~40s of activity) for a quick estimate
+        var sampleSize = 20;
         var oldBlock = await PROVIDER.getBlock(latest.number - sampleSize);
         var timeDiff = latest.timestamp - oldBlock.timestamp;
-        if (timeDiff <= 0) { el('baseTxCount').textContent = '—'; return; }
+        if (timeDiff <= 0) { el('baseTxCount').textContent = '\u2014'; return; }
 
-        // Count txns in sample range
         var totalTxns = 0;
-        var batchSize = 20;
-        for (var i = 0; i < sampleSize; i += batchSize) {
-          var batch = [];
-          var end = Math.min(i + batchSize, sampleSize);
-          for (var j = i; j < end; j++) {
-            batch.push(PROVIDER.getBlock(latest.number - j));
-          }
-          var batchBlocks = await Promise.all(batch);
-          for (var k = 0; k < batchBlocks.length; k++) {
-            totalTxns += (batchBlocks[k].transactions || []).length;
-          }
+        var batch = [];
+        for (var j = 0; j < sampleSize; j++) {
+          batch.push(PROVIDER.getBlock(latest.number - j));
+        }
+        var batchBlocks = await Promise.all(batch);
+        for (var k = 0; k < batchBlocks.length; k++) {
+          totalTxns += (batchBlocks[k].transactions || []).length;
         }
 
         var tps = totalTxns / timeDiff;
@@ -666,7 +661,7 @@
         }
       } catch (err) {
         console.warn('Tx count:', err.message);
-        el('baseTxCount').textContent = '—';
+        el('baseTxCount').textContent = '\u2014';
       }
     }
 
