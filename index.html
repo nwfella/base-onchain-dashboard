@@ -8,7 +8,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script>
+    // Load ethers async — catch failures gracefully
+    var ethersLoaded = false;
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
+    script.onload = function() { ethersLoaded = true; };
+    script.onerror = function() { console.warn('ethers CDN failed, using API-only mode'); };
+    document.head.appendChild(script);
+  </script>
   <style>
     :root {
       --base-blue: #0052FF;
@@ -375,7 +383,7 @@
       <div class="header-left">
         <div class="logo-icon">⊞</div>
         <div class="logo-text">Base<span>Onchain</span></div>
-        <span class="header-badge">✦ Live</span>
+        <span class="header-badge">✦ Loading…</span>
       </div>
       <div class="header-right">
         <div class="header-status">
@@ -514,244 +522,256 @@
   <footer class="footer">
     Built with ❤️ for the Base ecosystem &nbsp;·&nbsp;
     <a href="https://github.com/nwfella/base-onchain-dashboard" target="_blank">View on GitHub</a> &nbsp;·&nbsp;
-    Data from DeFiLlama, CoinGecko, Coinbase & Base RPC
+    Data from DeFiLlama, CoinGecko, Coinbase & Base RPC &nbsp;·&nbsp;
+    Last updated: <span id="lastUpdated">waiting…</span>
   </footer>
 
   <script>
     // ===== CONFIG =====
-    const BASE_RPC = 'https://mainnet.base.org';
-    const PROVIDER = new ethers.providers.JsonRpcProvider(BASE_RPC);
+    var PROVIDER = null;
 
-    // API helpers
-    async function fetchJSON(url) {
-      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
+    // ===== UTILITY =====
+    function updateTimestamp() {
+      var el = document.getElementById('lastUpdated');
+      if (!el) return;
+      var d = new Date();
+      el.textContent = d.toLocaleTimeString() + ' · ' + d.toLocaleDateString();
     }
 
-    function formatCurrency(val, decimals = 2) {
-      if (val == null || isNaN(val)) return '—';
+    async function fetchJSON(url) {
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, 12000);
+      try {
+        var res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function formatCurrency(val, decimals) {
+      if (decimals === undefined) decimals = 2;
+      if (val == null || isNaN(val)) return '\u2014';
       if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
       if (val >= 1e6) return '$' + (val / 1e6).toFixed(2) + 'M';
       if (val >= 1e3) return '$' + (val / 1e3).toFixed(1) + 'K';
-      return '$' + val.toFixed(decimals);
+      return '$' + Number(val).toFixed(decimals);
     }
 
     function formatNumber(val) {
-      if (val == null || isNaN(val)) return '—';
-      return val.toLocaleString();
+      if (val == null || isNaN(val)) return '\u2014';
+      return Number(val).toLocaleString();
     }
 
-    // ===== BASE CHAIN DATA =====
+    function el(id) { return document.getElementById(id); }
+
+    // ===== BASE CHAIN DATA (via RPC) =====
     async function loadBaseChainData() {
+      if (!PROVIDER) return;
       try {
-        const [network, block] = await Promise.all([
-          PROVIDER.getNetwork(),
-          PROVIDER.getBlock('latest')
-        ]);
-        document.getElementById('heroChainId').textContent = network.chainId;
-        document.getElementById('heroBlockHeight').textContent = formatNumber(block.number);
-
-        // Gas from block
+        var net = await PROVIDER.getNetwork();
+        var block = await PROVIDER.getBlock('latest');
+        el('heroChainId').textContent = net.chainId;
+        el('heroBlockHeight').textContent = formatNumber(block.number);
         if (block.baseFeePerGas) {
-          const gwei = ethers.utils.formatUnits(block.baseFeePerGas, 'gwei');
-          document.getElementById('heroGasPrice').textContent = parseFloat(gwei).toFixed(1);
-        } else {
-          document.getElementById('heroGasPrice').textContent = '—';
+          var gwei = parseFloat(ethers.utils.formatUnits(block.baseFeePerGas, 'gwei'));
+          el('heroGasPrice').textContent = gwei.toFixed(1);
         }
-
-        return block;
       } catch (err) {
-        console.warn('Base RPC fetch failed:', err.message);
-        document.getElementById('heroBlockHeight').textContent = '·';
-        document.getElementById('heroChainId').textContent = '8453';
-        return null;
+        console.warn('RPC:', err.message);
+        el('heroChainId').textContent = '8453';
       }
     }
 
     // ===== RECENT BLOCKS =====
     async function loadRecentBlocks() {
-      const container = document.getElementById('blockList');
+      var container = el('blockList');
+      if (!PROVIDER) {
+        container.innerHTML = '<div class="error">\u26A0\uFE0F RPC not available</div>';
+        return;
+      }
       try {
-        const latestBlock = await PROVIDER.getBlock('latest');
-        const blockNumbers = [];
-        for (let i = 0; i < 8; i++) {
-          blockNumbers.push(latestBlock.number - i);
-        }
-
-        const blocks = await Promise.all(
-          blockNumbers.map(n => PROVIDER.getBlock(n))
-        );
-
-        const now = Math.floor(Date.now() / 1000);
-        container.innerHTML = blocks.map(b => {
-          const age = now - b.timestamp;
-          let ageStr;
-          if (age < 60) ageStr = `${age}s ago`;
-          else if (age < 3600) ageStr = `${Math.floor(age/60)}m ago`;
-          else ageStr = `${Math.floor(age/3600)}h ago`;
-
-          return `<div class="block-item">
-            <span class="block-number">#${formatNumber(b.number)}</span>
-            <span class="block-age">${ageStr}</span>
-            <span class="block-txns">${b.transactions.length} txns</span>
-            <span class="block-hash">${b.hash.slice(0, 12)}…</span>
-          </div>`;
+        var latest = await PROVIDER.getBlock('latest');
+        var nums = [];
+        for (var i = 0; i < 8; i++) nums.push(latest.number - i);
+        var blocks = await Promise.all(nums.map(function(n) { return PROVIDER.getBlock(n); }));
+        var now = Math.floor(Date.now() / 1000);
+        container.innerHTML = blocks.map(function(b) {
+          var age = now - b.timestamp;
+          var ageStr = age < 60 ? age + 's ago' : age < 3600 ? Math.floor(age/60) + 'm ago' : Math.floor(age/3600) + 'h ago';
+          return '<div class="block-item">' +
+            '<span class="block-number">#' + formatNumber(b.number) + '</span>' +
+            '<span class="block-age">' + ageStr + '</span>' +
+            '<span class="block-txns">' + b.transactions.length + ' txns</span>' +
+            '<span class="block-hash">' + b.hash.slice(0,12) + '\u2026</span></div>';
         }).join('');
       } catch (err) {
-        container.innerHTML = `<div class="error">⚠️ Could not fetch blocks: ${err.message}</div>`;
+        container.innerHTML = '<div class="error">\u26A0\uFE0F Blocks: ' + err.message + '</div>';
       }
     }
 
     // ===== TOP PROTOCOLS ON BASE =====
     async function loadProtocols() {
-      const container = document.getElementById('protocolList');
+      var container = el('protocolList');
       try {
-        const data = await fetchJSON('https://api.llama.fi/protocols');
-        const baseProtocols = data
-          .filter(p => p.chains && p.chains.some(c => c.toLowerCase().includes('base')))
-          .sort((a, b) => (b.tvl || 0) - (a.tvl || 0))
+        var data = await fetchJSON('https://api.llama.fi/protocols');
+        var baseProtocols = data
+          .filter(function(p) { return p.chains && p.chains.some(function(c) { return c.toLowerCase().indexOf('base') !== -1; }); })
+          .sort(function(a, b) { return (b.tvl||0) - (a.tvl||0); })
           .slice(0, 12);
-
-        const logos = ['🔵', '🟣', '🟢', '🟡', '🔴', '🟠', '💧', '🌊', '🏦', '⚡', '🔄', '💎'];
-
-        container.innerHTML = baseProtocols.map((p, i) => {
-          const change = p.change_7d;
-          const changeClass = change >= 0 ? 'up' : 'down';
-          const changeStr = change != null ? (change >= 0 ? '+' : '') + change.toFixed(1) + '%' : '—';
-
-          return `<div class="protocol-item">
-            <div class="protocol-info">
-              <div class="protocol-logo">${logos[i % logos.length]}</div>
-              <div>
-                <div class="protocol-name">${p.name}</div>
-                <div class="protocol-category">${p.category || 'DeFi'}</div>
-              </div>
-            </div>
-            <div class="protocol-stats">
-              <div class="protocol-tvl">${formatCurrency(p.tvl)}</div>
-              <div class="protocol-change ${changeClass}">${changeStr}</div>
-            </div>
-          </div>`;
+        var logos = ['\uD83D\uDD35', '\uD83D\uDD34', '\uD83D\uDFE2', '\uD83D\uDFE1', '\uD83D\uDFE3', '\uD83D\uDFE0', '\uD83D\uDCA7', '\uD83C\uDF0A', '\uD83C\uDFE6', '\u26A1', '\uD83D\uDD04', '\uD83D\uDC8E'];
+        container.innerHTML = baseProtocols.map(function(p, i) {
+          var change = p.change_7d;
+          var cls = change >= 0 ? 'up' : 'down';
+          var str = change != null ? (change >= 0 ? '+' : '') + change.toFixed(1) + '%' : '\u2014';
+          return '<div class="protocol-item">' +
+            '<div class="protocol-info"><div class="protocol-logo">' + logos[i % logos.length] + '</div>' +
+            '<div><div class="protocol-name">' + p.name + '</div>' +
+            '<div class="protocol-category">' + (p.category || 'DeFi') + '</div></div></div>' +
+            '<div class="protocol-stats"><div class="protocol-tvl">' + formatCurrency(p.tvl) + '</div>' +
+            '<div class="protocol-change ' + cls + '">' + str + '</div></div></div>';
         }).join('');
       } catch (err) {
-        container.innerHTML = `<div class="error">⚠️ Could not load protocols: ${err.message}</div>`;
+        container.innerHTML = '<div class="error">\u26A0\uFE0F Protocols: ' + err.message + '</div>';
       }
     }
 
     // ===== MARKET PRICES =====
     async function loadMarketPrices() {
       try {
-        const data = await fetchJSON(
-          'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd&include_24hr_change=true'
-        );
+        var data = await fetchJSON('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd&include_24hr_change=true');
         if (data.ethereum) {
-          document.getElementById('ethPrice').textContent = '$' + data.ethereum.usd.toLocaleString();
-          const ethChange = document.getElementById('ethChange');
-          const ec = data.ethereum.usd_24h_change;
-          ethChange.textContent = (ec >= 0 ? '▲ +' : '▼ ') + ec.toFixed(2) + '%';
-          ethChange.className = 'ticker-change ' + (ec >= 0 ? 'up' : 'down');
+          el('ethPrice').textContent = '$' + Number(data.ethereum.usd).toLocaleString();
+          var ec = data.ethereum.usd_24h_change;
+          el('ethChange').textContent = (ec >= 0 ? '\u25B2 +' : '\u25BC ') + ec.toFixed(2) + '%';
+          el('ethChange').className = 'ticker-change ' + (ec >= 0 ? 'up' : 'down');
         }
         if (data.bitcoin) {
-          document.getElementById('btcPrice').textContent = '$' + data.bitcoin.usd.toLocaleString();
-          const btcChange = document.getElementById('btcChange');
-          const bc = data.bitcoin.usd_24h_change;
-          btcChange.textContent = (bc >= 0 ? '▲ +' : '▼ ') + bc.toFixed(2) + '%';
-          btcChange.className = 'ticker-change ' + (bc >= 0 ? 'up' : 'down');
+          el('btcPrice').textContent = '$' + Number(data.bitcoin.usd).toLocaleString();
+          var bc = data.bitcoin.usd_24h_change;
+          el('btcChange').textContent = (bc >= 0 ? '\u25B2 +' : '\u25BC ') + bc.toFixed(2) + '%';
+          el('btcChange').className = 'ticker-change ' + (bc >= 0 ? 'up' : 'down');
         }
       } catch (err) {
-        console.warn('CoinGecko fetch failed:', err.message);
-        // Fallback to Coinbase API
+        console.warn('CoinGecko:', err.message);
         try {
-          const eth = await fetchJSON('https://api.coinbase.com/v2/prices/ETH-USD/spot');
-          document.getElementById('ethPrice').textContent = '$' + parseFloat(eth.data.amount).toLocaleString();
-        } catch (e) {}
+          var eth = await fetchJSON('https://api.coinbase.com/v2/prices/ETH-USD/spot');
+          el('ethPrice').textContent = '$' + parseFloat(eth.data.amount).toLocaleString();
+        } catch(e) {}
         try {
-          const btc = await fetchJSON('https://api.coinbase.com/v2/prices/BTC-USD/spot');
-          document.getElementById('btcPrice').textContent = '$' + parseFloat(btc.data.amount).toLocaleString();
-        } catch (e) {}
+          var btc = await fetchJSON('https://api.coinbase.com/v2/prices/BTC-USD/spot');
+          el('btcPrice').textContent = '$' + parseFloat(btc.data.amount).toLocaleString();
+        } catch(e) {}
       }
     }
 
     // ===== BASE TVL =====
     async function loadBaseTvl() {
       try {
-        const data = await fetchJSON('https://api.llama.fi/v2/chains');
-        const base = data.find(c => c.name.toLowerCase() === 'base');
+        var data = await fetchJSON('https://api.llama.fi/v2/chains');
+        var base = data.find(function(c) { return c.name.toLowerCase() === 'base'; });
         if (base) {
-          document.getElementById('heroTvl').textContent = formatCurrency(base.tvl);
-          document.getElementById('baseTvl').textContent = formatCurrency(base.tvl);
-          const changeEl = document.getElementById('baseTvlChange');
-          if (base.tvlChange != null) {
-            const c = base.tvlChange;
-            changeEl.textContent = (c >= 0 ? '▲ +' : '▼ ') + c.toFixed(1) + '%';
-            changeEl.className = 'ticker-change ' + (c >= 0 ? 'up' : 'down');
+          el('heroTvl').textContent = formatCurrency(base.tvl);
+          el('baseTvl').textContent = formatCurrency(base.tvl);
+          if (el('baseTvlChange') && base.tvlChange != null) {
+            var c = base.tvlChange;
+            el('baseTvlChange').textContent = (c >= 0 ? '\u25B2 +' : '\u25BC ') + c.toFixed(1) + '%';
+            el('baseTvlChange').className = 'ticker-change ' + (c >= 0 ? 'up' : 'down');
           }
         }
       } catch (err) {
-        console.warn('DeFiLlama chain fetch failed:', err.message);
+        console.warn('TVL:', err.message);
       }
     }
 
     // ===== ECOSYSTEM STATS =====
     async function loadEcosystemStats() {
-      const container = document.getElementById('ecosystemStats');
+      var container = el('ecosystemStats');
       try {
-        const [protocolData, chainData] = await Promise.all([
-          fetchJSON('https://api.llama.fi/protocols'),
-          fetchJSON('https://api.llama.fi/v2/chains').catch(() => null)
-        ]);
+        var protocolData = await fetchJSON('https://api.llama.fi/protocols');
+        var chainData = null;
+        try { chainData = await fetchJSON('https://api.llama.fi/v2/chains'); } catch(e) {}
 
-        const baseProtocols = protocolData
-          .filter(p => p.chains && p.chains.some(c => c.toLowerCase().includes('base')));
-        const totalTvl = baseProtocols.reduce((sum, p) => sum + (p.tvl || 0), 0);
-        const protocolCount = baseProtocols.length;
-        const chainTvl = chainData ? chainData.find(c => c.name.toLowerCase() === 'base')?.tvl : null;
+        var baseProtocols = protocolData.filter(function(p) { return p.chains && p.chains.some(function(c) { return c.toLowerCase().indexOf('base') !== -1; }); });
+        var tvl = baseProtocols.reduce(function(s, p) { return s + (p.tvl||0); }, 0);
+        var chainTvl = chainData ? (chainData.find(function(c) { return c.name.toLowerCase() === 'base'; }) || {}).tvl : null;
 
-        const stats = [
-          { label: 'Protocols on Base', value: formatNumber(protocolCount) },
-          { label: 'Combined Protocol TVL', value: formatCurrency(totalTvl) },
+        container.innerHTML = [
+          { label: 'Protocols on Base', value: formatNumber(baseProtocols.length) },
+          { label: 'Combined Protocol TVL', value: formatCurrency(tvl) },
           { label: 'Bridge TVL (Canonical)', value: formatCurrency(chainTvl) },
           { label: 'L2 Technology', value: 'OP Stack' },
           { label: 'Chain ID', value: '8453' },
-        ];
+        ].map(function(s) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">' +
+            '<span style="color:var(--base-text-muted);font-size:0.9rem;">' + s.label + '</span>' +
+            '<span style="font-weight:600;">' + s.value + '</span></div>';
+        }).join('');
 
-        container.innerHTML = stats.map(s => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-            <span style="color:var(--base-text-muted);font-size:0.9rem;">${s.label}</span>
-            <span style="font-weight:600;">${s.value}</span>
-          </div>
-        `).join('');
-
-        // Additional stats from chainData
-        if (chainTvl) {
-          document.getElementById('baseTvl').textContent = formatCurrency(chainTvl);
-        }
+        if (chainTvl) el('baseTvl').textContent = formatCurrency(chainTvl);
       } catch (err) {
-        container.innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
+        container.innerHTML = '<div class="error">\u26A0\uFE0F ' + err.message + '</div>';
       }
     }
 
+    // ===== STATUS BADGE =====
+    var statusEl = document.querySelector('.header-badge');
+    function setStatus(text, color) {
+      if (statusEl) { statusEl.textContent = text; statusEl.style.borderColor = color || 'rgba(0,82,255,0.25)'; }
+    }
+
     // ===== INIT =====
-    async function init() {
-      // Fire all data loads in parallel
-      await Promise.allSettled([
+    function waitForEthers(callback) {
+      function check() {
+        if (typeof ethers !== 'undefined' && ethers.providers) {
+          PROVIDER = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          callback();
+        } else if (!window.ethersFailed) {
+          setTimeout(check, 200);
+        } else {
+          callback(); // proceed without ethers
+        }
+      }
+      // Timeout after 8s
+      setTimeout(function() {
+        if (!PROVIDER) {
+          console.warn('ethers timeout - running API-only');
+          callback();
+        }
+      }, 8000);
+      check();
+    }
+
+    waitForEthers(function() {
+      setStatus('\u2728 Loading\u2026', 'rgba(255,184,0,0.3)');
+
+      Promise.allSettled([
         loadBaseChainData(),
         loadRecentBlocks(),
         loadProtocols(),
         loadMarketPrices(),
         loadBaseTvl(),
         loadEcosystemStats()
-      ]);
+      ]).then(function() {
+        setStatus('\u2728 Live', 'rgba(0,200,83,0.3)');
+        updateTimestamp();
+      });
 
-      // Refresh block data every 30s, prices every 60s
-      setInterval(loadRecentBlocks, 30000);
-      setInterval(loadBaseChainData, 30000);
-      setInterval(loadMarketPrices, 60000);
-      setInterval(loadProtocols, 120000);
-    }
+      // Refreshes
+      setInterval(function() {
+        Promise.allSettled([loadRecentBlocks(), loadBaseChainData()]).then(updateTimestamp);
+      }, 30000);
+      setInterval(function() {
+        loadMarketPrices().then(updateTimestamp);
+      }, 60000);
+      setInterval(function() {
+        Promise.allSettled([loadProtocols(), loadBaseTvl(), loadEcosystemStats()]).then(updateTimestamp);
+      }, 120000);
+    });
 
-    init();
+    // Set chain ID immediately (static)
+    if (el('heroChainId')) el('heroChainId').textContent = '8453';
   </script>
 </body>
 </html>
