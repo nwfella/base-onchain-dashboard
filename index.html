@@ -573,7 +573,7 @@
         var net = await PROVIDER.getNetwork();
         var block = await PROVIDER.getBlock('latest');
         el('heroChainId').textContent = net.chainId;
-        el('heroBlockHeight').textContent = formatNumber(block.number);
+        el('heroBlockHeight').innerHTML = '<a href="https://basescan.org/block/' + block.number + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + formatNumber(block.number) + ' ↗</a>';
         if (block.baseFeePerGas) {
           var gwei = parseFloat(ethers.utils.formatUnits(block.baseFeePerGas, 'gwei'));
           el('heroGasPrice').textContent = gwei.toFixed(1);
@@ -601,10 +601,10 @@
           var age = now - b.timestamp;
           var ageStr = age < 60 ? age + 's ago' : age < 3600 ? Math.floor(age/60) + 'm ago' : Math.floor(age/3600) + 'h ago';
           return '<div class="block-item">' +
-            '<span class="block-number">#' + formatNumber(b.number) + '</span>' +
+            '<span class="block-number"><a href="https://basescan.org/block/' + b.number + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">#' + formatNumber(b.number) + ' ↗</a></span>' +
             '<span class="block-age">' + ageStr + '</span>' +
             '<span class="block-txns">' + b.transactions.length + ' txns</span>' +
-            '<span class="block-hash">' + b.hash.slice(0,12) + '\u2026</span></div>';
+            '<span class="block-hash">' + b.hash.slice(0,12) + '…</span></div>';
         }).join('');
       } catch (err) {
         container.innerHTML = '<div class="error">\u26A0\uFE0F Blocks: ' + err.message + '</div>';
