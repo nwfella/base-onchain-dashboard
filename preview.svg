@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A0B0D"/>
+      <stop offset="100%" style="stop-color:#12141A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0052FF"/>
+      <stop offset="50%" style="stop-color:#4D8AFF"/>
+      <stop offset="100%" style="stop-color:#00C853"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="40" y="40" width="1200" height="560" rx="24" fill="#1A1D28" stroke="#2A2E3E" stroke-width="1"/>
+  
+  <!-- Header bar -->
+  <rect x="40" y="40" width="1200" height="60" rx="24" fill="#12141A" stroke="#2A2E3E" stroke-width="1"/>
+  <rect x="40" y="76" width="1200" height="24" fill="#12141A"/>
+  <circle cx="80" cy="70" r="14" fill="url(#accent)"/>
+  <text x="105" y="75" font-family="Inter, sans-serif" font-weight="700" font-size="20" fill="#E8EAF0">Base<span fill="#4D8AFF">Onchain</span></text>
+  <circle cx="280" cy="70" r="5" fill="#00C853"/>
+  <text x="295" y="75" font-family="Inter, sans-serif" font-size="14" fill="#888D9B">Chain Active</text>
+  
+  <!-- Stats row -->
+  <rect x="80" y="120" width="250" height="80" rx="12" fill="rgba(255,255,255,0.03)" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="100" y="150" font-family="Inter, sans-serif" font-size="14" fill="#888D9B">Chain ID</text>
+  <text x="100" y="180" font-family="JetBrains Mono, monospace" font-size="28" font-weight="700" fill="#E8EAF0">8453</text>
+  
+  <rect x="355" y="120" width="250" height="80" rx="12" fill="rgba(255,255,255,0.03)" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="375" y="150" font-family="Inter, sans-serif" font-size="14" fill="#888D9B">Latest Block</text>
+  <text x="375" y="180" font-family="JetBrains Mono, monospace" font-size="28" font-weight="700" fill="#E8EAF0">46,970K</text>
+  
+  <rect x="630" y="120" width="250" height="80" rx="12" fill="rgba(255,255,255,0.03)" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="650" y="150" font-family="Inter, sans-serif" font-size="14" fill="#888D9B">Bridged TVL</text>
+  <text x="650" y="180" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#E8EAF0">$3.81B</text>
+  
+  <rect x="905" y="120" width="250" height="80" rx="12" fill="rgba(255,255,255,0.03)" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="925" y="150" font-family="Inter, sans-serif" font-size="14" fill="#888D9B">Gas Price</text>
+  <text x="925" y="180" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#E8EAF0">0.006</text>
+  
+  <!-- Two-column layout mockup -->
+  <!-- Left: Protocols list -->
+  <rect x="80" y="225" width="530" height="200" rx="12" fill="rgba(255,255,255,0.02)" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="105" y="255" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#888D9B" letter-spacing="1">TOP PROTOCOLS ON BASE</text>
+  
+  <circle cx="105" cy="285" r="14" fill="#0052FF" opacity="0.3"/>
+  <text x="130" y="289" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#E8EAF0">Aerodrome</text>
+  <text x="500" y="289" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#E8EAF0">$1.2B</text>
+  
+  <line x1="105" y1="305" x2="590" y2="305" stroke="#2A2E3E" stroke-width="1"/>
+  <circle cx="105" cy="325" r="14" fill="#8A7CFF" opacity="0.3"/>
+  <text x="130" y="329" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#E8EAF0">Uniswap</text>
+  <text x="500" y="329" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#E8EAF0">$890M</text>
+  
+  <line x1="105" y1="345" x2="590" y2="345" stroke="#2A2E3E" stroke-width="1"/>
+  <circle cx="105" cy="365" r="14" fill="#00C853" opacity="0.3"/>
+  <text x="130" y="369" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#E8EAF0">Morpho</text>
+  <text x="500" y="369" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#E8EAF0">$420M</text>
+
+  <!-- Right: Recent blocks -->
+  <rect x="635" y="225" width="530" height="200" rx="12" fill="rgba(255,255,255,0.02)" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="660" y="255" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#888D9B" letter-spacing="1">RECENT BLOCKS</text>
+  
+  <text x="660" y="285" font-family="JetBrains Mono, monospace" font-size="13" fill="#4D8AFF">#46,970,322</text>
+  <text x="780" y="285" font-family="Inter, sans-serif" font-size="13" fill="#888D9B">2s ago</text>
+  <text x="880" y="285" font-family="Inter, sans-serif" font-size="13" fill="#888D9B">3 txns</text>
+  
+  <line x1="660" y1="298" x2="1145" y2="298" stroke="#2A2E3E" stroke-width="1"/>
+  <text x="660" y="318" font-family="JetBrains Mono, monospace" font-size="13" fill="#4D8AFF">#46,970,321</text>
+  <text x="780" y="318" font-family="Inter, sans-serif" font-size="13" fill="#888D9B">4s ago</text>
+  <text x="880" y="318" font-family="Inter, sans-serif" font-size="13" fill="#888D9B">1 txn</text>
+  
+  <!-- NFT mint button CTA -->
+  <rect x="80" y="450" width="1080" height="60" rx="30" fill="url(#accent)" opacity="0.9"/>
+  <text x="620" y="487" font-family="Inter, sans-serif" font-size="20" font-weight="700" fill="white" text-anchor="middle">⚡ Connect Wallet &amp; Mint Your Base Explorer Badge</text>
+  
+  <!-- Footer -->
+  <text x="640" y="560" font-family="Inter, sans-serif" font-size="13" fill="#888D9B" text-anchor="middle">Built on Base · Data from DeFiLlama, CoinGecko &amp; Base RPC</text>
+</svg>

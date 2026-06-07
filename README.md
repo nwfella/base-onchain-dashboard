@@ -6,9 +6,16 @@
 [![Built for Base](https://img.shields.io/badge/built%20for-Base-0052FF?style=for-the-badge&logo=coinbase)](https://base.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
-![Dashboard Preview](https://raw.githubusercontent.com/nwfella/base-onchain-dashboard/main/preview.png)
+![Dashboard Preview](https://raw.githubusercontent.com/nwfella/base-onchain-dashboard/main/preview.svg)
 
 ---
+
+## 📝 Dev.to Tutorial
+
+Read the full walkthrough on how this was built:
+👉 **[Building a Base Ecosystem Dashboard: From Zero to Live dApp in a Day](devto-tutorial.md)**
+
+Covers everything: architecture, smart contract deployment, wallet connection, NFT minting, and GitHub Pages deployment.
 
 ## ✨ Features
 
